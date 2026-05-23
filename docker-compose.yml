@@ -1,0 +1,11 @@
+services:
+  tempest-service:
+    container_name: tempest-service
+    build: .
+    ports:
+      - "${WEATHER_PORT:-8766}:8766"
+    env_file: .env
+    restart: unless-stopped
+    # On Linux production, replace the ports block above with:
+    #   network_mode: host
+    # so the container can receive UDP broadcasts from the Tempest hub.
