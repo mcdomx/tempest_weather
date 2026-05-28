@@ -58,6 +58,26 @@ curl http://localhost:8766/weather/latest
 curl -N http://localhost:8766/weather/stream/wind
 ```
 
+## Using the API from Python
+
+With the service running, use any HTTP client (e.g. `requests`) against the existing endpoints:
+
+```python
+import requests
+
+# Latest full weather observation
+obs = requests.get("http://localhost:8766/weather/latest").json()
+print(obs["air_temp_c"])
+
+# Latest wind reading
+wind = requests.get("http://localhost:8766/weather/wind").json()
+print(wind["wind_speed_mph"])
+
+# Hub and sensor status
+status = requests.get("http://localhost:8766/weather/status").json()
+print(status["hub"]["rssi"])
+```
+
 ## How It Works
 
 The Tempest hub broadcasts JSON messages on **UDP port 50222** to the local network. A background thread receives these messages, parses them, and stores the latest reading for each message type. FastAPI routes serve the current state and push updates to SSE subscribers.
