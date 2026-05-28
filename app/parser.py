@@ -1,8 +1,12 @@
+import os
 from datetime import datetime, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 UDP_PORT: int = 50222
 BUFFER_SIZE: int = 4096
+
+STATION_TZ = ZoneInfo(os.getenv("STATION_TIMEZONE", "America/New_York"))
 
 OBS_ST_FIELDS: list = [
     "timestamp",
@@ -27,7 +31,7 @@ OBS_ST_FIELDS: list = [
 
 
 def _iso(ts: int) -> str:
-    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(STATION_TZ).isoformat()
 
 
 def parse_obs_st(msg: dict) -> Optional[dict]:

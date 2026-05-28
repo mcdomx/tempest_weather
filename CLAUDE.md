@@ -73,5 +73,6 @@ pipenv run pytest tests/
 TEMPEST_CLIENT_ID
 TEMPEST_SECRET
 TEMPEST_PERSONAL_TOKEN
-WEATHER_PORT    # host port for docker-compose (default: 8766)
+WEATHER_PORT         # host port for docker-compose (default: 8766)
+STATION_TIMEZONE     # IANA timezone for timestamp display (default: America/New_York)
 ```
