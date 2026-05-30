@@ -20,7 +20,7 @@ app/
   listener.py   # UDP daemon thread, in-memory state store, SSE subscriber fan-out
   parser.py     # pure parse functions for all message types (no pandas)
   api.py        # FastAPI app, lifespan, all REST and SSE endpoints
-  cloud.py      # Tempest cloud REST API client (history endpoint)
+  cloud.py      # Tempest cloud REST API client (history and forecast endpoints)
 main.py         # uvicorn entry point (port 8766)
 Dockerfile
 docker-compose.yml
@@ -31,7 +31,7 @@ conftest.py     # adds project root to sys.path for test imports
 
 **Connection pattern**: A daemon thread opens a UDP socket on port 50222, parses each broadcast via `app/parser.py`, updates an in-memory state dict, and fans out to any active SSE subscriber queues via `asyncio.call_soon_threadsafe`. FastAPI routes read from that shared state.
 
-**Cloud API pattern**: `app/cloud.py` calls `swd.weatherflow.com/swd/rest` using `TEMPEST_PERSONAL_TOKEN`. The numeric device ID is auto-discovered via `/stations` on first use and cached for the process lifetime.
+**Cloud API pattern**: `app/cloud.py` calls `swd.weatherflow.com/swd/rest` using `TEMPEST_PERSONAL_TOKEN`. The numeric station ID and device ID are each auto-discovered via `/stations` on first use and cached for the process lifetime. Both can be pinned via `TEMPEST_STATION_ID` / `TEMPEST_DEVICE_ID` env vars to skip discovery.
 
 ## API Endpoints
 
@@ -45,8 +45,10 @@ conftest.py     # adds project root to sys.path for test imports
 | GET | `/weather/stream/obs` | SSE stream — `obs_st` only (every ~60s) |
 | GET | `/weather/stream/wind` | SSE stream — `rapid_wind` only (every 3s) |
 | GET | `/weather/history` | Historical `obs_st` from Tempest cloud API (requires `TEMPEST_PERSONAL_TOKEN`) |
+| GET | `/weather/forecast/daily` | 10-day forecast from Tempest Better Forecast API |
+| GET | `/weather/forecast/hourly` | Hourly forecast (~231 hours) from Tempest Better Forecast API |
 
-`/weather/history` accepts a `minutes` query parameter (1–1440, default 60). Fields match `obs_st` naming. Device ID is auto-discovered; optionally set `TEMPEST_DEVICE_ID` to skip the discovery call.
+`/weather/history` accepts a `minutes` query parameter (1–1440, default 60). Fields match `obs_st` naming. The forecast and history endpoints require `TEMPEST_PERSONAL_TOKEN`; station/device IDs are auto-discovered.
 
 ## Running
 
@@ -80,8 +82,9 @@ pipenv run pytest tests/
 ```
 TEMPEST_CLIENT_ID
 TEMPEST_SECRET
-TEMPEST_PERSONAL_TOKEN   # required for /weather/history
+TEMPEST_PERSONAL_TOKEN   # required for /weather/history and /weather/forecast/*
 WEATHER_PORT             # host port for docker-compose (default: 8766)
 STATION_TIMEZONE         # IANA timezone for timestamp display (default: America/New_York)
+TEMPEST_STATION_ID       # optional numeric station ID; auto-discovered via /stations if unset
 TEMPEST_DEVICE_ID        # optional numeric ST device ID; auto-discovered via /stations if unset
 ```
