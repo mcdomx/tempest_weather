@@ -51,10 +51,14 @@ Open `notebooks/tempest_udp.ipynb`.
 | GET | `/weather/stream` | SSE stream — all message types |
 | GET | `/weather/stream/obs` | SSE stream — observations only (~60s) |
 | GET | `/weather/stream/wind` | SSE stream — wind only (every 3s) |
+| GET | `/weather/history?minutes=60` | Historical observations from the Tempest cloud API |
+
+The `minutes` parameter accepts 1–1440 (default 60). Requires `TEMPEST_PERSONAL_TOKEN`.
 
 ```bash
 curl http://localhost:8766/health
 curl http://localhost:8766/weather/latest
+curl "http://localhost:8766/weather/history?minutes=120"
 curl -N http://localhost:8766/weather/stream/wind
 ```
 
@@ -76,6 +80,11 @@ print(wind["wind_speed_mph"])
 # Hub and sensor status
 status = requests.get("http://localhost:8766/weather/status").json()
 print(status["hub"]["rssi"])
+
+# Historical observations (last 2 hours)
+history = requests.get("http://localhost:8766/weather/history?minutes=120").json()
+for obs in history["observations"]:
+    print(obs["timestamp"], obs["air_temp_c"])
 ```
 
 ## How It Works
@@ -95,11 +104,13 @@ The Tempest hub broadcasts JSON messages on **UDP port 50222** to the local netw
 
 ## Environment Variables
 
-`.env` is used for cloud REST API credentials (not required for UDP):
+`.env` is used for cloud REST API credentials (not required for UDP-only use):
 
 ```
 TEMPEST_CLIENT_ID
 TEMPEST_SECRET
-TEMPEST_PERSONAL_TOKEN
-WEATHER_PORT    # host port for docker-compose (default: 8766)
+TEMPEST_PERSONAL_TOKEN   # required for /weather/history
+WEATHER_PORT             # host port for docker-compose (default: 8766)
+STATION_TIMEZONE         # IANA timezone for timestamps (default: America/New_York)
+TEMPEST_DEVICE_ID        # optional numeric device ID; auto-discovered if unset
 ```
