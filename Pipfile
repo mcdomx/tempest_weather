@@ -9,9 +9,12 @@ python-dotenv = "*"
 pandas = "*"
 fastapi = "*"
 uvicorn = {extras = ["standard"]}
+httpx = "*"
 
 [dev-packages]
 pytest = "*"
+pytest-asyncio = "*"
+httpx = "*"
 
 [requires]
 python_version = "3.9"
