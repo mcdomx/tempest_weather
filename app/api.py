@@ -6,7 +6,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from app.cloud import fetch_obs_history
+from app.cloud import fetch_forecast, fetch_obs_history
 from app.listener import start_listener, get_state, subscribe, unsubscribe
 
 
@@ -66,6 +66,28 @@ async def weather_history(minutes: int = Query(default=60, ge=1, le=1440)) -> di
     try:
         observations = await fetch_obs_history(minutes)
         return {"minutes": minutes, "count": len(observations), "observations": observations}
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/weather/forecast/daily")
+async def weather_forecast_daily() -> dict:
+    try:
+        entries = await fetch_forecast("daily")
+        return {"count": len(entries), "forecast": entries}
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/weather/forecast/hourly")
+async def weather_forecast_hourly() -> dict:
+    try:
+        entries = await fetch_forecast("hourly")
+        return {"count": len(entries), "forecast": entries}
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
