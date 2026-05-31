@@ -48,7 +48,7 @@ If `.local` doesn't resolve, find the Pi's IP from your router and use that inst
 sudo apt update && sudo apt upgrade -y
 sudo apt install python3-pip git -y
 
-pip3 install --user pipenv
+pip3 install --user pipenv --break-system-packages
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
