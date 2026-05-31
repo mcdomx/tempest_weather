@@ -53,7 +53,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-Verify Python 3.9+ is available:
+Verify Python 3.13 is available:
 
 ```bash
 python3 --version
@@ -91,10 +91,10 @@ See `CLAUDE.md` for the full list of supported env vars.
 ## 6. Install Dependencies
 
 ```bash
-PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy
+PIPENV_VENV_IN_PROJECT=1 pipenv lock && pipenv install --deploy
 ```
 
-`--deploy` enforces `Pipfile.lock` — exact versions, no surprises.
+`pipenv lock` regenerates `Pipfile.lock` for the Pi's Python version. `--deploy` then enforces those exact versions.
 
 ---
 

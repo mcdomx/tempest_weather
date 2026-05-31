@@ -4,7 +4,7 @@
 Local UDP listener, data exploration, and HTTP API service for a WeatherFlow Tempest weather station.
 
 ## Stack
-- Python 3.9, Jupyter notebooks, pandas, FastAPI, uvicorn, httpx
+- Python 3.13, Jupyter notebooks, pandas, FastAPI, uvicorn, httpx
 - Dependency management: `pipenv`
 - No external weather libraries — raw sockets only
 

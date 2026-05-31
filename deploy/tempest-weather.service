@@ -9,8 +9,7 @@ User=mcdomx
 Group=mcdomx
 WorkingDirectory=/home/mcdomx/tempest_weather
 EnvironmentFile=/home/mcdomx/tempest_weather/.env
-Environment="PIPENV_VENV_IN_PROJECT=1"
-ExecStart=/usr/local/bin/pipenv run python main.py
+ExecStart=/home/mcdomx/tempest_weather/.venv/bin/python main.py
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
