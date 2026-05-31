@@ -7,4 +7,5 @@ __pycache__/
 dist/
 build/
 .DS_Store
-Pipfile.lock
+.cicd_disabled
+logs/.last_run

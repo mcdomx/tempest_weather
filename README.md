@@ -128,4 +128,65 @@ WEATHER_PORT             # host port for docker-compose (default: 8766)
 STATION_TIMEZONE         # IANA timezone for timestamps (default: America/New_York)
 TEMPEST_STATION_ID       # optional numeric station ID; auto-discovered if unset
 TEMPEST_DEVICE_ID        # optional numeric device ID; auto-discovered if unset
+CICD_INTERVAL_MINUTES    # how often the CI/CD script polls GitHub (default: 15)
+```
+
+## CI/CD — Automatic Deployment (Raspberry Pi)
+
+`scripts/cicd_update.py` polls GitHub for new commits on `main` and automatically pulls, reinstalls dependencies, and restarts the service. It is designed to run on the production Raspberry Pi only.
+
+### How it works
+
+A cron job fires every minute. The script checks `CICD_INTERVAL_MINUTES` (default 15) against the last run time and exits silently if not enough time has passed. When an interval elapses, it fetches `origin/main`, compares the commit hash with local `HEAD`, and deploys only if something changed.
+
+The script only runs when `ENVIRONMENT=production` is set. If that variable is missing or set to anything else, the script logs a message and exits — making accidental runs safe.
+
+### Raspberry Pi setup
+
+```bash
+# 1. Clone the repo
+cd /home/mcdomx
+git clone https://github.com/mcdomx/tempest_weather.git
+cd tempest_weather
+
+# 2. Configure environment
+nano .env   # add tokens and set CICD_INTERVAL_MINUTES as needed
+
+# 3. Install dependencies
+pip3 install pipenv
+PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy
+
+# 4. Install and start the systemd service
+#    Verify ExecStart path matches `which pipenv` on your Pi
+sudo cp deploy/tempest-weather.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable tempest-weather
+sudo systemctl start tempest-weather
+
+# 5. Install the cron job (runs as the mcdomx user)
+crontab -e
+# Add this line:
+# * * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py
+```
+
+### Manual trigger
+
+```bash
+./scripts/run_cicd.sh
+```
+
+### Pause / resume automation without editing cron
+
+```bash
+# Pause
+touch /home/mcdomx/tempest_weather/.cicd_disabled
+
+# Resume
+rm /home/mcdomx/tempest_weather/.cicd_disabled
+```
+
+### Logs
+
+```bash
+tail -f /home/mcdomx/tempest_weather/logs/cicd.log
 ```
