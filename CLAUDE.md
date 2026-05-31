@@ -24,6 +24,11 @@ app/
 main.py         # uvicorn entry point (port 8766)
 Dockerfile
 docker-compose.yml
+deploy/
+  tempest-weather.service  # systemd unit for production Pi deployment
+scripts/
+  cicd_update.py           # CI/CD polling script (stdlib only)
+  run_cicd.sh              # executable wrapper; sets ENVIRONMENT=production
 notebooks/      # exploratory Jupyter notebooks (unchanged)
 tests/          # pytest test suite
 conftest.py     # adds project root to sys.path for test imports
@@ -87,4 +92,32 @@ WEATHER_PORT             # host port for docker-compose (default: 8766)
 STATION_TIMEZONE         # IANA timezone for timestamp display (default: America/New_York)
 TEMPEST_STATION_ID       # optional numeric station ID; auto-discovered via /stations if unset
 TEMPEST_DEVICE_ID        # optional numeric ST device ID; auto-discovered via /stations if unset
+CICD_INTERVAL_MINUTES    # polling interval for CI/CD script in minutes (default: 15)
 ```
+
+## CI/CD (Raspberry Pi production only)
+
+`scripts/cicd_update.py` polls GitHub for new commits on `main` and automatically deploys. It only runs when `ENVIRONMENT=production` is set — safe to run accidentally in dev.
+
+**Cron entry (Pi, as `mcdomx`):**
+```
+* * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py
+```
+
+**Manual trigger:**
+```bash
+./scripts/run_cicd.sh
+```
+
+**Pause / resume without editing cron:**
+```bash
+touch .cicd_disabled   # pause
+rm .cicd_disabled      # resume
+```
+
+**Logs:** `logs/cicd.log`
+
+**Key behaviour:**
+- Cron fires every minute; the script gates on `CICD_INTERVAL_MINUTES` via `logs/.last_run` — most fires are silent no-ops
+- On new commits: `git pull` → `pipenv install --deploy` → `systemctl restart tempest-weather`
+- `Pipfile.lock` is committed so the Pi always installs exact versions (`--deploy` enforces this)
