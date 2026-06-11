@@ -21,6 +21,7 @@ app/
   parser.py     # pure parse functions for all message types (no pandas)
   api.py        # FastAPI app, lifespan, all REST and SSE endpoints
   cloud.py      # Tempest cloud REST API client (history and forecast endpoints)
+  display.py    # optional I2C 1602 LCD status display (no-op if absent)
 main.py         # uvicorn entry point (port 8766)
 Dockerfile
 docker-compose.yml
@@ -37,6 +38,8 @@ conftest.py     # adds project root to sys.path for test imports
 **Connection pattern**: A daemon thread opens a UDP socket on port 50222, parses each broadcast via `app/parser.py`, updates an in-memory state dict, and fans out to any active SSE subscriber queues via `asyncio.call_soon_threadsafe`. FastAPI routes read from that shared state.
 
 **Cloud API pattern**: `app/cloud.py` calls `swd.weatherflow.com/swd/rest` using `TEMPEST_PERSONAL_TOKEN`. The numeric station ID and device ID are each auto-discovered via `/stations` on first use and cached for the process lifetime. Both can be pinned via `TEMPEST_STATION_ID` / `TEMPEST_DEVICE_ID` env vars to skip discovery.
+
+**Display pattern**: `app/display.py` optionally drives an I2C 1602 LCD (PCF8574 backpack) on a Raspberry Pi. `start_display()` (called from `lifespan` after `start_listener()`) runs a daemon thread that reads listener state and polls `/health`, rendering a fixed 16x2 screen. Every hardware path is guarded — a missing `RPLCD` library, absent LCD, or I2C error is logged and the app runs without the display. The libraries are linux-marked in the `Pipfile` (skipped on macOS). See `README-LCD.md` for wiring and setup.
 
 ## API Endpoints
 
@@ -93,6 +96,11 @@ STATION_TIMEZONE         # IANA timezone for timestamp display (default: America
 TEMPEST_STATION_ID       # optional numeric station ID; auto-discovered via /stations if unset
 TEMPEST_DEVICE_ID        # optional numeric ST device ID; auto-discovered via /stations if unset
 CICD_INTERVAL_MINUTES    # polling interval for CI/CD script in minutes (default: 15)
+LCD_ENABLED              # I2C LCD: auto (default) | true | false  — see README-LCD.md
+LCD_I2C_ADDRESS          # LCD I2C address (default: 0x27; some modules use 0x3f)
+LCD_I2C_PORT             # I2C bus number (default: 1)
+LCD_UPDATE_SECONDS       # LCD refresh interval in seconds (default: 5)
+HEALTH_URL               # endpoint polled for the LCD health indicator (default: http://127.0.0.1:8766/health)
 ```
 
 ## CI/CD (Raspberry Pi production only)

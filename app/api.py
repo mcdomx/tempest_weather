@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -7,12 +8,17 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from app.cloud import fetch_forecast, fetch_obs_history
+from app.display import start_display
 from app.listener import start_listener, get_state, subscribe, unsubscribe
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     start_listener()
+    try:
+        start_display()
+    except Exception:
+        logging.exception("LCD display failed to start; continuing without it")
     yield
 
 

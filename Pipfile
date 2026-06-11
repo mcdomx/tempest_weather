@@ -10,6 +10,8 @@ pandas = "*"
 fastapi = "*"
 uvicorn = {extras = ["standard"]}
 httpx = "*"
+RPLCD = {version = "*", markers = "sys_platform == 'linux'"}
+smbus2 = {version = "*", markers = "sys_platform == 'linux'"}
 
 [dev-packages]
 pytest = "*"
