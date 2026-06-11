@@ -127,5 +127,5 @@ rm .cicd_disabled      # resume
 
 **Key behaviour:**
 - Cron fires every minute; the script gates on `CICD_INTERVAL_MINUTES` via `logs/.last_run` — most fires are silent no-ops
-- On new commits: `git pull` → `pipenv install --deploy` → `systemctl restart tempest-weather`
-- `Pipfile.lock` is committed so the Pi always installs exact versions (`--deploy` enforces this)
+- On new commits: `git pull` → `pipenv install` → `systemctl restart tempest-weather`
+- `Pipfile.lock` is committed for reproducibility; regenerate it on the Pi when adding Linux-only packages (e.g. RPLCD)

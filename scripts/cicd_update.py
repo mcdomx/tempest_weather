@@ -107,7 +107,7 @@ def install_dependencies() -> None:
     if not pipenv_bin:
         raise RuntimeError(f"pipenv not found at {PIPENV} and not on PATH")
     env = {**os.environ, "PIPENV_VENV_IN_PROJECT": "1"}
-    out = _run([pipenv_bin, "install", "--deploy"], cwd=PROJECT_ROOT, env=env)
+    out = _run([pipenv_bin, "install"], cwd=PROJECT_ROOT, env=env)
     logger.info("pipenv install: %s", out or "ok")
 
 
