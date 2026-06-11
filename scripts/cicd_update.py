@@ -3,6 +3,7 @@
 
 import logging
 import os
+import shutil
 import sys
 import subprocess
 import time
@@ -100,13 +101,13 @@ def git_pull() -> None:
 def install_dependencies() -> None:
     pipenv_path = Path(PIPENV)
     if pipenv_path.exists():
-        cmd = [str(pipenv_path), "install", "--deploy"]
+        pipenv_bin = str(pipenv_path)
     else:
-        # Fall back to invoking pipenv via the venv's own Python
-        venv_python = PROJECT_ROOT / ".venv" / "bin" / "python"
-        cmd = [str(venv_python), "-m", "pipenv", "install", "--deploy"]
+        pipenv_bin = shutil.which("pipenv")
+    if not pipenv_bin:
+        raise RuntimeError(f"pipenv not found at {PIPENV} and not on PATH")
     env = {**os.environ, "PIPENV_VENV_IN_PROJECT": "1"}
-    out = _run(cmd, cwd=PROJECT_ROOT, env=env)
+    out = _run([pipenv_bin, "install", "--deploy"], cwd=PROJECT_ROOT, env=env)
     logger.info("pipenv install: %s", out or "ok")
 
 
