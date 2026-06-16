@@ -55,6 +55,8 @@ conftest.py     # adds project root to sys.path for test imports
 | GET | `/weather/history` | Historical `obs_st` from Tempest cloud API (requires `TEMPEST_PERSONAL_TOKEN`) |
 | GET | `/weather/forecast/daily` | 10-day forecast from Tempest Better Forecast API |
 | GET | `/weather/forecast/hourly` | Hourly forecast (~231 hours) from Tempest Better Forecast API |
+| POST | `/admin/restart` | Restart the systemd service (unauthenticated) |
+| POST | `/admin/cicd` | Force a CI/CD deploy check, bypassing the interval gate (unauthenticated) |
 
 `/weather/history` accepts a `minutes` query parameter (1–1440, default 60). Fields match `obs_st` naming. The forecast and history endpoints require `TEMPEST_PERSONAL_TOKEN`; station/device IDs are auto-discovered.
 
@@ -109,7 +111,7 @@ HEALTH_URL               # endpoint polled for the LCD health indicator (default
 
 **Sudoers prerequisite** — the cron job restarts the service non-interactively, so this entry is required in `/etc/sudoers.d/tempest-weather`:
 ```
-mcdomx ALL=(ALL) NOPASSWD: /bin/systemctl restart tempest-weather
+mcdomx ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart tempest-weather
 ```
 
 **Cron entry (Pi, as `mcdomx`):**

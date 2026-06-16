@@ -54,8 +54,12 @@ Open `notebooks/tempest_udp.ipynb`.
 | GET | `/weather/history?minutes=60` | Historical observations from the Tempest cloud API |
 | GET | `/weather/forecast/daily` | 10-day forecast from the Tempest cloud API |
 | GET | `/weather/forecast/hourly` | Hourly forecast (~10 days) from the Tempest cloud API |
+| POST | `/admin/restart` | Restart the systemd service |
+| POST | `/admin/cicd` | Force a CI/CD deploy check immediately (bypasses interval gate) |
 
 The `minutes` parameter for `/weather/history` accepts 1–1440 (default 60). The forecast and history endpoints require `TEMPEST_PERSONAL_TOKEN`.
+
+> **Note:** The `/admin/*` endpoints are unauthenticated. Do not expose port 8766 to the public internet.
 
 ```bash
 curl http://localhost:8766/health
@@ -166,7 +170,7 @@ sudo systemctl start tempest-weather
 # 5. Allow the cron job to restart the service without a password prompt
 sudo visudo -f /etc/sudoers.d/tempest-weather
 # Add this line:
-# mcdomx ALL=(ALL) NOPASSWD: /bin/systemctl restart tempest-weather
+# mcdomx ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart tempest-weather
 
 # 6. Install the cron job (runs as the mcdomx user)
 (crontab -l 2>/dev/null; echo "* * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py") | crontab -

@@ -1,11 +1,20 @@
 import asyncio
 import json
 import logging
+import os
+import subprocess
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_CICD_SCRIPT = _PROJECT_ROOT / "scripts" / "cicd_update.py"
+_LAST_RUN_FILE = _PROJECT_ROOT / "logs" / ".last_run"
+_SYSTEMCTL = "/usr/bin/systemctl"
+_SERVICE = "tempest-weather"
 
 from app.cloud import fetch_forecast, fetch_obs_history
 from app.display import start_display
@@ -126,3 +135,27 @@ async def weather_stream_obs() -> StreamingResponse:
 @app.get("/weather/stream/wind")
 async def weather_stream_wind() -> StreamingResponse:
     return StreamingResponse(_sse_generator("rapid_wind"), media_type="text/event-stream")
+
+
+@app.post("/admin/restart")
+async def admin_restart() -> dict:
+    """Restart the systemd service. Response is sent before the process exits."""
+    async def _do() -> None:
+        await asyncio.sleep(1)
+        subprocess.Popen(["sudo", _SYSTEMCTL, "restart", _SERVICE])
+
+    asyncio.create_task(_do())
+    return {"status": "restarting"}
+
+
+@app.post("/admin/cicd")
+async def admin_cicd() -> dict:
+    """Force a CI/CD deploy check, bypassing the interval gate."""
+    async def _do() -> None:
+        await asyncio.sleep(0.5)
+        _LAST_RUN_FILE.unlink(missing_ok=True)
+        env = {**os.environ, "ENVIRONMENT": "production"}
+        subprocess.Popen(["/usr/bin/python3", str(_CICD_SCRIPT)], env=env)
+
+    asyncio.create_task(_do())
+    return {"status": "triggered"}

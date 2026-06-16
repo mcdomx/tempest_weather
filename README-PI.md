@@ -128,7 +128,7 @@ sudo visudo -f /etc/sudoers.d/tempest-weather
 Add this line:
 
 ```
-mcdomx ALL=(ALL) NOPASSWD: /bin/systemctl restart tempest-weather
+mcdomx ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart tempest-weather
 ```
 
 Then install the cron job:
