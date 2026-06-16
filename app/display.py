@@ -9,7 +9,7 @@ is guarded and never raises into the caller.
 Fixed 16x2 layout::
 
     72F 55% 9mph ↑       temp(F)  humidity(%)  wind(mph)  wind dir(arrow glyph)
-    UV3 12klx R:N        UV index  lux  rain indicator
+    UV3   12klx   R:N   UV index (left)  lux (centred)  rain indicator (right)
 
 Wind direction is rendered as one of 8 custom CGRAM arrow glyphs (N/NE/E/SE/S/SW/W/NW),
 occupying CGRAM slots 0–7. When no wind data is available, "?" is shown instead.
@@ -94,6 +94,16 @@ def _pad(line: str) -> str:
     return line[:LCD_COLS].ljust(LCD_COLS)
 
 
+def _lcr(left: str, center: str, right: str) -> str:
+    """Place three strings left / centred / right in LCD_COLS characters."""
+    gap = LCD_COLS - len(left) - len(right)
+    if gap < len(center):
+        return _pad(f"{left}{center}{right}")
+    pad_l = (gap - len(center)) // 2
+    pad_r = gap - len(center) - pad_l
+    return f"{left}{' ' * pad_l}{center}{' ' * pad_r}{right}"
+
+
 def format_lines(obs: Optional[dict], wind: Optional[dict]) -> Tuple[str, str]:
     """Build the two LCD rows from current state. Pure; no hardware access."""
     temp_f = _c_to_f(obs.get("air_temp_c")) if obs else None
@@ -109,9 +119,12 @@ def format_lines(obs: Optional[dict], wind: Optional[dict]) -> Tuple[str, str]:
     wind_s = f"{round(wind_mph)}mph" if wind_mph is not None else "--mph"
     uv_s = f"UV{round(uv)}" if uv is not None else "UV-"
 
-    line1 = f"{temp_s} {hum_s} {wind_s} {wind_dir}"
-    line2 = f"{uv_s} {_fmt_lux(obs.get('illuminance_lux') if obs else None)} {_rain_indicator(obs)}"
-    return _pad(line1), _pad(line2)
+    left1 = f"{temp_s} {hum_s} {wind_s}"
+    line1 = left1[:LCD_COLS - 1].ljust(LCD_COLS - 1) + wind_dir
+    lux_s = _fmt_lux(obs.get("illuminance_lux") if obs else None)
+    rain_s = _rain_indicator(obs)
+    line2 = _lcr(uv_s, lux_s, rain_s)
+    return _pad(line1), line2
 
 
 

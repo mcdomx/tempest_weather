@@ -30,9 +30,11 @@ def test_format_lines_full_state():
     line1, line2 = format_lines(FULL_OBS, FULL_WIND)
     assert len(line1) == LCD_COLS
     assert len(line2) == LCD_COLS
-    assert line1.startswith("72F 55% 9mph ")
-    assert line1[13] == chr(7)  # 315° → NW → CGRAM slot 7
-    assert line2.startswith("UV3 12klx R:N")
+    assert line1.startswith("72F 55% 9mph")
+    assert line1[15] == chr(7)  # 315° → NW → CGRAM slot 7, right-justified
+    assert line2.startswith("UV3")       # UV left-justified
+    assert line2.endswith("R:N")        # rain right-justified
+    assert "12klx" in line2             # lux centred
 
 
 def test_format_lines_missing_state_uses_placeholders():
