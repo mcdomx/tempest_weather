@@ -7,7 +7,7 @@ RPLCD library is linux-only and absent in CI on macOS).
 import app.display as display
 from app.display import (
     LCD_COLS,
-    _compass,
+    _compass_index,
     _c_to_f,
     _fmt_lux,
     _rain_indicator,
@@ -30,7 +30,8 @@ def test_format_lines_full_state():
     line1, line2 = format_lines(FULL_OBS, FULL_WIND)
     assert len(line1) == LCD_COLS
     assert len(line2) == LCD_COLS
-    assert line1.startswith("72F 55% 9mph NW")
+    assert line1.startswith("72F 55% 9mph ")
+    assert line1[13] == chr(7)  # 315° → NW → CGRAM slot 7
     assert line2.startswith("UV3 12klx R:N")
 
 
@@ -47,6 +48,7 @@ def test_format_lines_missing_wind_only():
     line1, _ = format_lines(FULL_OBS, None)
     assert "72F 55%" in line1
     assert "--mph" in line1
+    assert "?" in line1
 
 
 def test_rain_indicator():
@@ -56,15 +58,15 @@ def test_rain_indicator():
     assert _rain_indicator(None) == "R:?"
 
 
-def test_compass_boundaries():
-    assert _compass(0) == "N"
-    assert _compass(45) == "NE"
-    assert _compass(90) == "E"
-    assert _compass(180) == "S"
-    assert _compass(315) == "NW"
-    assert _compass(359) == "N"
-    assert _compass(360) == "N"
-    assert _compass(None) == "--"
+def test_compass_index_boundaries():
+    assert _compass_index(0) == 0    # N
+    assert _compass_index(45) == 1   # NE
+    assert _compass_index(90) == 2   # E
+    assert _compass_index(180) == 4  # S
+    assert _compass_index(315) == 7  # NW
+    assert _compass_index(359) == 0  # N
+    assert _compass_index(360) == 0  # N
+    assert _compass_index(None) is None
 
 
 def test_fmt_lux_thresholds():

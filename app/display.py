@@ -8,8 +8,11 @@ is guarded and never raises into the caller.
 
 Fixed 16x2 layout::
 
-    72F 55% 9mph NW      temp(F)  humidity(%)  wind(mph)  wind dir(compass)
+    72F 55% 9mph ↑       temp(F)  humidity(%)  wind(mph)  wind dir(arrow glyph)
     UV3 12klx R:N        UV index  lux  rain indicator
+
+Wind direction is rendered as one of 8 custom CGRAM arrow glyphs (N/NE/E/SE/S/SW/W/NW),
+occupying CGRAM slots 0–7. When no wind data is available, "?" is shown instead.
 """
 
 import logging
@@ -33,7 +36,18 @@ logger = logging.getLogger(__name__)
 LCD_COLS: int = 16
 LCD_ROWS: int = 2
 
-_COMPASS_8 = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+# Custom CGRAM arrow glyphs for 8 compass directions (slots 0–7: N NE E SE S SW W NW).
+# Each entry is 8 bytes encoding a 5×8 pixel bitmap (bits 4–0 = columns left→right).
+_ARROW_CHARS = [
+    [0x04, 0x0E, 0x1F, 0x04, 0x04, 0x04, 0x04, 0x00],  # 0: N  ↑
+    [0x0F, 0x07, 0x05, 0x08, 0x10, 0x00, 0x00, 0x00],  # 1: NE ↗
+    [0x00, 0x04, 0x02, 0x1F, 0x02, 0x04, 0x00, 0x00],  # 2: E  →
+    [0x10, 0x08, 0x05, 0x07, 0x0F, 0x00, 0x00, 0x00],  # 3: SE ↘
+    [0x04, 0x04, 0x04, 0x04, 0x1F, 0x0E, 0x04, 0x00],  # 4: S  ↓
+    [0x01, 0x02, 0x14, 0x1C, 0x1E, 0x00, 0x00, 0x00],  # 5: SW ↙
+    [0x00, 0x04, 0x08, 0x1F, 0x08, 0x04, 0x00, 0x00],  # 6: W  ←
+    [0x1E, 0x1C, 0x14, 0x02, 0x01, 0x00, 0x00, 0x00],  # 7: NW ↖
+]
 
 _started = threading.Event()
 
@@ -45,12 +59,11 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-def _compass(deg: Optional[float]) -> str:
-    """Convert a wind direction in degrees to an 8-point compass label."""
+def _compass_index(deg: Optional[float]) -> Optional[int]:
+    """Return CGRAM slot (0–7) for the compass direction, or None if unknown."""
     if deg is None:
-        return "--"
-    index = int((float(deg) % 360) / 45.0 + 0.5) % 8
-    return _COMPASS_8[index]
+        return None
+    return int((float(deg) % 360) / 45.0 + 0.5) % 8
 
 
 def _c_to_f(celsius: Optional[float]) -> Optional[int]:
@@ -88,7 +101,8 @@ def format_lines(obs: Optional[dict], wind: Optional[dict]) -> Tuple[str, str]:
     uv = obs.get("uv_index") if obs else None
 
     wind_mph = wind.get("wind_speed_mph") if wind else None
-    wind_dir = _compass(wind.get("wind_direction_deg")) if wind else "--"
+    idx = _compass_index(wind.get("wind_direction_deg")) if wind else None
+    wind_dir = chr(idx) if idx is not None else "?"
 
     temp_s = f"{temp_f}F" if temp_f is not None else "--F"
     hum_s = f"{round(humidity)}%" if humidity is not None else "--%"
@@ -99,6 +113,12 @@ def format_lines(obs: Optional[dict], wind: Optional[dict]) -> Tuple[str, str]:
     line2 = f"{uv_s} {_fmt_lux(obs.get('illuminance_lux') if obs else None)} {_rain_indicator(obs)}"
     return _pad(line1), _pad(line2)
 
+
+
+def _register_arrows(lcd) -> None:
+    """Load all 8 directional arrow glyphs into LCD CGRAM slots 0–7."""
+    for slot, charmap in enumerate(_ARROW_CHARS):
+        lcd.create_char(slot, charmap)
 
 
 def _init_lcd():
@@ -114,6 +134,7 @@ def _init_lcd():
         auto_linebreaks=False,
     )
     lcd.clear()
+    _register_arrows(lcd)
     return lcd
 
 
