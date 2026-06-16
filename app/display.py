@@ -9,15 +9,13 @@ is guarded and never raises into the caller.
 Fixed 16x2 layout::
 
     72F 55% 9mph NW      temp(F)  humidity(%)  wind(mph)  wind dir(compass)
-    UV3 12klx R:N OK     UV index  lux  rain indicator  health(OK/--)
+    UV3 12klx R:N        UV index  lux  rain indicator
 """
 
-import json
 import logging
 import os
 import threading
 import time
-import urllib.request
 from typing import Optional, Tuple
 
 from app.listener import get_state
@@ -83,7 +81,7 @@ def _pad(line: str) -> str:
     return line[:LCD_COLS].ljust(LCD_COLS)
 
 
-def format_lines(obs: Optional[dict], wind: Optional[dict], healthy: bool) -> Tuple[str, str]:
+def format_lines(obs: Optional[dict], wind: Optional[dict]) -> Tuple[str, str]:
     """Build the two LCD rows from current state. Pure; no hardware access."""
     temp_f = _c_to_f(obs.get("air_temp_c")) if obs else None
     humidity = obs.get("relative_humidity_pct") if obs else None
@@ -98,21 +96,9 @@ def format_lines(obs: Optional[dict], wind: Optional[dict], healthy: bool) -> Tu
     uv_s = f"UV{round(uv)}" if uv is not None else "UV-"
 
     line1 = f"{temp_s} {hum_s} {wind_s} {wind_dir}"
-    line2 = f"{uv_s} {_fmt_lux(obs.get('illuminance_lux') if obs else None)} {_rain_indicator(obs)} {'OK' if healthy else '--'}"
+    line2 = f"{uv_s} {_fmt_lux(obs.get('illuminance_lux') if obs else None)} {_rain_indicator(obs)}"
     return _pad(line1), _pad(line2)
 
-
-def _check_health() -> bool:
-    """Return True only if the local /health endpoint reports status 'ok'."""
-    url = os.getenv("HEALTH_URL", "http://127.0.0.1:8766/health")
-    try:
-        with urllib.request.urlopen(url, timeout=2) as resp:
-            if resp.status != 200:
-                return False
-            payload = json.loads(resp.read().decode("utf-8"))
-            return payload.get("status") == "ok"
-    except Exception:
-        return False
 
 
 def _init_lcd():
@@ -135,7 +121,7 @@ def _display_thread(lcd) -> None:
     interval = _env_int("LCD_UPDATE_SECONDS", 5)
     prev: Optional[Tuple[str, str]] = None
     while True:
-        line1, line2 = format_lines(get_state("obs_st"), get_state("rapid_wind"), _check_health())
+        line1, line2 = format_lines(get_state("obs_st"), get_state("rapid_wind"))
         if (line1, line2) != prev:
             try:
                 lcd.cursor_pos = (0, 0)

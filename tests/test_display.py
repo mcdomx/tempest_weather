@@ -27,25 +27,24 @@ FULL_WIND = {"wind_speed_mph": 9.2, "wind_direction_deg": 315}
 
 
 def test_format_lines_full_state():
-    line1, line2 = format_lines(FULL_OBS, FULL_WIND, healthy=True)
+    line1, line2 = format_lines(FULL_OBS, FULL_WIND)
     assert len(line1) == LCD_COLS
     assert len(line2) == LCD_COLS
     assert line1.startswith("72F 55% 9mph NW")
-    assert line2.startswith("UV3 12klx R:N OK")
+    assert line2.startswith("UV3 12klx R:N")
 
 
 def test_format_lines_missing_state_uses_placeholders():
-    line1, line2 = format_lines(None, None, healthy=False)
+    line1, line2 = format_lines(None, None)
     assert len(line1) == LCD_COLS
     assert len(line2) == LCD_COLS
     assert "--F" in line1
     assert "--mph" in line1
     assert "R:?" in line2
-    assert line2.rstrip().endswith("--")  # health placeholder
 
 
 def test_format_lines_missing_wind_only():
-    line1, _ = format_lines(FULL_OBS, None, healthy=True)
+    line1, _ = format_lines(FULL_OBS, None)
     assert "72F 55%" in line1
     assert "--mph" in line1
 
