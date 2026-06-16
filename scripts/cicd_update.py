@@ -18,7 +18,7 @@ LAST_RUN_FILE = LOG_DIR / ".last_run"
 SERVICE_NAME  = "tempest-weather"
 GIT           = "/usr/bin/git"
 SYSTEMCTL     = "/usr/bin/systemctl"
-PIPENV        = "/usr/local/bin/pipenv"  # adjust if `which pipenv` differs on the Pi
+PIPENV        = "/home/mcdomx/.local/bin/pipenv"
 DEFAULT_INTERVAL = 15
 
 logger = logging.getLogger(__name__)
