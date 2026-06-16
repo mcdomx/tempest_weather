@@ -163,10 +163,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable tempest-weather
 sudo systemctl start tempest-weather
 
-# 5. Install the cron job (runs as the mcdomx user)
-crontab -e
+# 5. Allow the cron job to restart the service without a password prompt
+sudo visudo -f /etc/sudoers.d/tempest-weather
 # Add this line:
-# * * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py
+# mcdomx ALL=(ALL) NOPASSWD: /bin/systemctl restart tempest-weather
+
+# 6. Install the cron job (runs as the mcdomx user)
+(crontab -l 2>/dev/null; echo "* * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py") | crontab -
 ```
 
 ### Manual trigger

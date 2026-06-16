@@ -107,9 +107,14 @@ HEALTH_URL               # endpoint polled for the LCD health indicator (default
 
 `scripts/cicd_update.py` polls GitHub for new commits on `main` and automatically deploys. It only runs when `ENVIRONMENT=production` is set — safe to run accidentally in dev.
 
+**Sudoers prerequisite** — the cron job restarts the service non-interactively, so this entry is required in `/etc/sudoers.d/tempest-weather`:
+```
+mcdomx ALL=(ALL) NOPASSWD: /bin/systemctl restart tempest-weather
+```
+
 **Cron entry (Pi, as `mcdomx`):**
 ```
-* * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py
+(crontab -l 2>/dev/null; echo "* * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py") | crontab -
 ```
 
 **Manual trigger:**

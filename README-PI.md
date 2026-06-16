@@ -119,10 +119,22 @@ journalctl -u tempest-weather -f
 
 ## 8. Set Up CI/CD (Auto-Deploy on New Commits)
 
-Add to crontab (`crontab -e`):
+The CI/CD script calls `sudo systemctl restart tempest-weather` non-interactively, so the `mcdomx` user needs passwordless sudo permission for that one command.
+
+```bash
+sudo visudo -f /etc/sudoers.d/tempest-weather
+```
+
+Add this line:
 
 ```
-* * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py
+mcdomx ALL=(ALL) NOPASSWD: /bin/systemctl restart tempest-weather
+```
+
+Then install the cron job:
+
+```bash
+(crontab -l 2>/dev/null; echo "* * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py") | crontab -
 ```
 
 This fires every minute but gates on `CICD_INTERVAL_MINUTES` (default: 15). Logs go to `logs/cicd.log`.
