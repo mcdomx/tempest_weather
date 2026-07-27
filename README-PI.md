@@ -119,16 +119,17 @@ journalctl -u tempest-weather -f
 
 ## 8. Set Up CI/CD (Auto-Deploy on New Commits)
 
-The CI/CD script calls `sudo systemctl restart tempest-weather` non-interactively, so the `mcdomx` user needs passwordless sudo permission for that one command.
+The CI/CD script calls `sudo systemctl restart tempest-weather` non-interactively, and the `/admin/reboot` endpoint calls `sudo reboot`, so the `mcdomx` user needs passwordless sudo permission for both commands.
 
 ```bash
 sudo visudo -f /etc/sudoers.d/tempest-weather
 ```
 
-Add this line:
+Add these lines:
 
 ```
 mcdomx ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart tempest-weather
+mcdomx ALL=(ALL) NOPASSWD: /usr/sbin/reboot
 ```
 
 Then install the cron job:

@@ -55,6 +55,7 @@ Open `notebooks/tempest_udp.ipynb`.
 | GET | `/weather/forecast/daily` | 10-day forecast from the Tempest cloud API |
 | GET | `/weather/forecast/hourly` | Hourly forecast (~10 days) from the Tempest cloud API |
 | POST | `/admin/restart` | Restart the systemd service |
+| POST | `/admin/reboot` | Reboot the host — only permitted on a Raspberry Pi (400 otherwise) |
 | POST | `/admin/cicd` | Force a CI/CD deploy check immediately (bypasses interval gate) |
 
 The `minutes` parameter for `/weather/history` accepts 1–1440 (default 60). The forecast and history endpoints require `TEMPEST_PERSONAL_TOKEN`.
@@ -167,10 +168,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable tempest-weather
 sudo systemctl start tempest-weather
 
-# 5. Allow the cron job to restart the service without a password prompt
+# 5. Allow the cron job to restart the service, and /admin/reboot to reboot the Pi, without a password prompt
 sudo visudo -f /etc/sudoers.d/tempest-weather
-# Add this line:
+# Add these lines:
 # mcdomx ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart tempest-weather
+# mcdomx ALL=(ALL) NOPASSWD: /usr/sbin/reboot
 
 # 6. Install the cron job (runs as the mcdomx user)
 (crontab -l 2>/dev/null; echo "* * * * * ENVIRONMENT=production /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/cicd_update.py") | crontab -

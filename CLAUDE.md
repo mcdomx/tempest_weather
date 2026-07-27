@@ -56,6 +56,7 @@ conftest.py     # adds project root to sys.path for test imports
 | GET | `/weather/forecast/daily` | 10-day forecast from Tempest Better Forecast API |
 | GET | `/weather/forecast/hourly` | Hourly forecast (~231 hours) from Tempest Better Forecast API |
 | POST | `/admin/restart` | Restart the systemd service (unauthenticated) |
+| POST | `/admin/reboot` | Reboot the host — only permitted on a Raspberry Pi, 400 otherwise (unauthenticated) |
 | POST | `/admin/cicd` | Force a CI/CD deploy check, bypassing the interval gate (unauthenticated) |
 
 `/weather/history` accepts a `minutes` query parameter (1–1440, default 60). Fields match `obs_st` naming. The forecast and history endpoints require `TEMPEST_PERSONAL_TOKEN`; station/device IDs are auto-discovered.
@@ -109,9 +110,10 @@ HEALTH_URL               # endpoint polled for the LCD health indicator (default
 
 `scripts/cicd_update.py` polls GitHub for new commits on `main` and automatically deploys. It only runs when `ENVIRONMENT=production` is set — safe to run accidentally in dev.
 
-**Sudoers prerequisite** — the cron job restarts the service non-interactively, so this entry is required in `/etc/sudoers.d/tempest-weather`:
+**Sudoers prerequisite** — the cron job restarts the service non-interactively, and `/admin/reboot` calls `sudo reboot`, so these entries are required in `/etc/sudoers.d/tempest-weather`:
 ```
 mcdomx ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart tempest-weather
+mcdomx ALL=(ALL) NOPASSWD: /usr/sbin/reboot
 ```
 
 **Cron entry (Pi, as `mcdomx`):**

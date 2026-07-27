@@ -15,6 +15,8 @@ _CICD_SCRIPT = _PROJECT_ROOT / "scripts" / "cicd_update.py"
 _LAST_RUN_FILE = _PROJECT_ROOT / "logs" / ".last_run"
 _SYSTEMCTL = "/usr/bin/systemctl"
 _SERVICE = "tempest-weather"
+_REBOOT = "/usr/sbin/reboot"
+_DEVICE_TREE_MODEL = Path("/proc/device-tree/model")
 
 from app.cloud import fetch_forecast, fetch_obs_history
 from app.display import start_display
@@ -146,6 +148,27 @@ async def admin_restart() -> dict:
 
     asyncio.create_task(_do())
     return {"status": "restarting"}
+
+
+def _is_raspberry_pi() -> bool:
+    try:
+        return "raspberry pi" in _DEVICE_TREE_MODEL.read_text(errors="ignore").lower()
+    except OSError:
+        return False
+
+
+@app.post("/admin/reboot")
+async def admin_reboot() -> dict:
+    """Reboot the host. Only permitted when running on a Raspberry Pi."""
+    if not _is_raspberry_pi():
+        raise HTTPException(status_code=400, detail="Not running on a Raspberry Pi")
+
+    async def _do() -> None:
+        await asyncio.sleep(1)
+        subprocess.Popen(["sudo", _REBOOT])
+
+    asyncio.create_task(_do())
+    return {"status": "rebooting"}
 
 
 @app.post("/admin/cicd")
