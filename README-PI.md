@@ -178,10 +178,13 @@ reachable** — it can't be pushed through CI/CD:
 becomes unresponsive:
 ```bash
 echo "dtparam=watchdog=on" | sudo tee -a /boot/firmware/config.txt
-sudo tee -a /etc/systemd/system.conf <<< "RuntimeWatchdogSec=10s"
+sudo tee -a /etc/systemd/system.conf <<< "RuntimeWatchdogSec=1min"
 sudo reboot
 ```
-After reboot, confirm it's active: `sudo wdctl /dev/watchdog`.
+After reboot, confirm it's active: `journalctl -b | grep -i watchdog` should show
+systemd arming the hardware watchdog. (`sudo wdctl /dev/watchdog` will report
+"Device or resource busy" once this is working — that's expected, since
+systemd holds the device open exclusively once armed, not a failure.)
 
 **Persistent, capped journal** — so `journalctl -u tempest-weather -b -1`
 (logs from the *previous* boot) survives an auto-reboot instead of being
