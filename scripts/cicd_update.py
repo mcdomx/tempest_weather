@@ -2,6 +2,7 @@
 """CI/CD polling script for Tempest Weather FastAPI server."""
 
 import logging
+import logging.handlers
 import os
 import shutil
 import sys
@@ -33,7 +34,7 @@ def setup_logging() -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=[
-            logging.FileHandler(LOG_FILE),
+            logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=5_000_000, backupCount=3),
             logging.StreamHandler(sys.stdout),
         ],
     )

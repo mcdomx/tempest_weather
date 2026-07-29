@@ -166,6 +166,53 @@ Weather data populates after the first UDP broadcast from the Tempest hub (~10 s
 
 ---
 
+## 10. Watchdog & Freeze Diagnostics
+
+The service's `Type=notify`/`WatchdogSec=30` (in `deploy/tempest-weather.service`)
+makes systemd restart the app if its own event loop or UDP listener thread
+hangs. That alone won't save you from a full system-level freeze (kernel
+wedge, OOM thrashing), so also do this **once, now, while the Pi is still
+reachable** — it can't be pushed through CI/CD:
+
+**Hardware watchdog** — makes the Pi reboot itself if the kernel itself
+becomes unresponsive:
+```bash
+echo "dtparam=watchdog=on" | sudo tee -a /boot/firmware/config.txt
+sudo tee -a /etc/systemd/system.conf <<< "RuntimeWatchdogSec=10s"
+sudo reboot
+```
+After reboot, confirm it's active: `sudo wdctl /dev/watchdog`.
+
+**Persistent, capped journal** — so `journalctl -u tempest-weather -b -1`
+(logs from the *previous* boot) survives an auto-reboot instead of being
+wiped:
+```bash
+sudo mkdir -p /var/log/journal
+sudo systemd-tmpfiles --create --prefix /var/log/journal
+printf "Storage=persistent\nSystemMaxUse=200M\n" | sudo tee -a /etc/systemd/journald.conf
+sudo systemctl restart systemd-journald
+```
+
+**Resource-snapshot cron job** — records system + process + app metrics
+every 2 minutes to `logs/resource_monitor.log` (self-rotating, capped),
+independently of the app process, so there's something to look at after a
+freeze:
+```bash
+(crontab -l 2>/dev/null; echo "*/2 * * * * /usr/bin/python3 /home/mcdomx/tempest_weather/scripts/resource_monitor.py") | crontab -
+```
+
+**After a freeze (auto-reboot or manual power-cycle), to find the cause:**
+```bash
+journalctl -u tempest-weather -b -1 --no-pager | tail -200   # app's last logs before the reboot
+tail -100 logs/resource_monitor.log                          # RSS/FD/load/disk trend leading up to it
+```
+A steady climb in `rss_kb`/`fd_count` before the gap points at a subscriber
+leak; climbing swap + load average points at OOM thrashing; disk near-full
+points at log growth; a clean stop with nothing anomalous points at a
+hardware/kernel-level wedge instead.
+
+---
+
 ## Troubleshooting
 
 **No weather data** — The Tempest hub and Pi must be on the same subnet. UDP broadcasts don't cross router boundaries.

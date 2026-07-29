@@ -2,12 +2,15 @@ import asyncio
 import json
 import logging
 import os
+import resource
+import socket
 import subprocess
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -17,10 +20,53 @@ _SYSTEMCTL = "/usr/bin/systemctl"
 _SERVICE = "tempest-weather"
 _REBOOT = "/usr/sbin/reboot"
 _DEVICE_TREE_MODEL = Path("/proc/device-tree/model")
+_SSE_HEARTBEAT_SECONDS = 15
+_WATCHDOG_PING_SECONDS = 15
 
 from app.cloud import fetch_forecast, fetch_obs_history
 from app.display import start_display
-from app.listener import start_listener, get_state, subscribe, unsubscribe
+from app.listener import (
+    start_listener,
+    get_state,
+    subscribe,
+    unsubscribe,
+    get_subscriber_counts,
+    listener_thread_alive,
+)
+
+
+def _sd_notify(state: str) -> None:
+    """Send a status update to systemd via the sd_notify protocol.
+
+    No-op if NOTIFY_SOCKET isn't set (not running under systemd, e.g. dev/macOS).
+    Implemented with a raw AF_UNIX datagram socket so no extra dependency
+    (e.g. python-systemd) is needed.
+    """
+    addr = os.environ.get("NOTIFY_SOCKET")
+    if not addr:
+        return
+    if addr.startswith("@"):
+        addr = "\0" + addr[1:]
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    try:
+        sock.sendto(state.encode(), addr)
+    except OSError:
+        logging.exception("sd_notify failed")
+    finally:
+        sock.close()
+
+
+async def _watchdog_loop() -> None:
+    """Ping systemd's watchdog only while the UDP listener thread is alive.
+
+    If the listener thread has silently died, this stops petting the
+    watchdog so systemd (WatchdogSec=) kills and restarts the service
+    instead of the app running with no live weather data forever.
+    """
+    while True:
+        await asyncio.sleep(_WATCHDOG_PING_SECONDS)
+        if listener_thread_alive():
+            _sd_notify("WATCHDOG=1")
 
 
 @asynccontextmanager
@@ -30,7 +76,10 @@ async def lifespan(app: FastAPI):
         start_display()
     except Exception:
         logging.exception("LCD display failed to start; continuing without it")
+    _sd_notify("READY=1")
+    watchdog_task = asyncio.create_task(_watchdog_loop())
     yield
+    watchdog_task.cancel()
 
 
 app = FastAPI(title="Tempest Weather API", lifespan=lifespan)
@@ -111,12 +160,22 @@ async def weather_forecast_hourly() -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _sse_generator(msg_type: str) -> AsyncGenerator[str, None]:
+async def _sse_generator(msg_type: str, request: Request) -> AsyncGenerator[str, None]:
     loop = asyncio.get_event_loop()
     queue = subscribe(msg_type, loop)
     try:
         while True:
-            parsed = await queue.get()
+            try:
+                parsed = await asyncio.wait_for(queue.get(), timeout=_SSE_HEARTBEAT_SECONDS)
+            except asyncio.TimeoutError:
+                # No message in a while — actively check for a half-open
+                # connection (client gone dark without a clean TCP close)
+                # instead of relying solely on ASGI disconnect detection,
+                # which can miss that case and leak the subscriber forever.
+                if await request.is_disconnected():
+                    break
+                yield ": keepalive\n\n"
+                continue
             yield f"data: {json.dumps(parsed)}\n\n"
     except asyncio.CancelledError:
         pass
@@ -125,18 +184,29 @@ async def _sse_generator(msg_type: str) -> AsyncGenerator[str, None]:
 
 
 @app.get("/weather/stream")
-async def weather_stream() -> StreamingResponse:
-    return StreamingResponse(_sse_generator("*"), media_type="text/event-stream")
+async def weather_stream(request: Request) -> StreamingResponse:
+    return StreamingResponse(_sse_generator("*", request), media_type="text/event-stream")
 
 
 @app.get("/weather/stream/obs")
-async def weather_stream_obs() -> StreamingResponse:
-    return StreamingResponse(_sse_generator("obs_st"), media_type="text/event-stream")
+async def weather_stream_obs(request: Request) -> StreamingResponse:
+    return StreamingResponse(_sse_generator("obs_st", request), media_type="text/event-stream")
 
 
 @app.get("/weather/stream/wind")
-async def weather_stream_wind() -> StreamingResponse:
-    return StreamingResponse(_sse_generator("rapid_wind"), media_type="text/event-stream")
+async def weather_stream_wind(request: Request) -> StreamingResponse:
+    return StreamingResponse(_sse_generator("rapid_wind", request), media_type="text/event-stream")
+
+
+@app.get("/admin/metrics")
+async def admin_metrics() -> dict:
+    """Lightweight process/app metrics for external monitoring."""
+    return {
+        "subscribers": get_subscriber_counts(),
+        "threads": threading.active_count(),
+        "listener_thread_alive": listener_thread_alive(),
+        "rss_kb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+    }
 
 
 @app.post("/admin/restart")

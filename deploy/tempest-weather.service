@@ -4,7 +4,8 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=simple
+Type=notify
+WatchdogSec=30
 User=mcdomx
 Group=mcdomx
 WorkingDirectory=/home/mcdomx/tempest_weather

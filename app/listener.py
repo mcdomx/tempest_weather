@@ -23,6 +23,11 @@ _subscribers_lock = threading.Lock()
 
 _started = threading.Event()
 
+# Bounds how far a slow/dead SSE subscriber can lag before we drop new
+# messages for it instead of growing its queue (and the process's memory)
+# without limit. ~10 minutes of rapid_wind backlog (fires every ~3s).
+_SUBSCRIBER_QUEUE_MAXSIZE = 200
+
 
 def _listener_thread() -> None:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -54,7 +59,21 @@ def _listener_thread() -> None:
             targets = list(_subscribers.get("*", [])) + list(_subscribers.get(msg_type, []))
 
         for loop, queue in targets:
-            loop.call_soon_threadsafe(queue.put_nowait, parsed)
+            loop.call_soon_threadsafe(_put_nowait_safe, queue, parsed)
+
+
+def _put_nowait_safe(queue: "asyncio.Queue", parsed: dict) -> None:
+    """Drop the message if a subscriber's queue is full instead of raising.
+
+    Runs on the event loop thread (scheduled via call_soon_threadsafe). A
+    stalled/half-open SSE client would otherwise queue every message forever;
+    bounding the queue (see subscribe()) and dropping the overflow here keeps
+    a dead subscriber from growing process memory without limit.
+    """
+    try:
+        queue.put_nowait(parsed)
+    except asyncio.QueueFull:
+        pass
 
 
 def start_listener() -> None:
@@ -71,7 +90,7 @@ def get_state(msg_type: str) -> Optional[dict]:
 
 
 def subscribe(msg_type: str, loop: asyncio.AbstractEventLoop) -> asyncio.Queue:
-    queue: asyncio.Queue = asyncio.Queue()
+    queue: asyncio.Queue = asyncio.Queue(maxsize=_SUBSCRIBER_QUEUE_MAXSIZE)
     with _subscribers_lock:
         if msg_type not in _subscribers:
             _subscribers[msg_type] = []
@@ -86,3 +105,12 @@ def unsubscribe(msg_type: str, loop: asyncio.AbstractEventLoop, queue: asyncio.Q
             bucket.remove((loop, queue))
         except ValueError:
             pass
+
+
+def get_subscriber_counts() -> dict:
+    with _subscribers_lock:
+        return {msg_type: len(bucket) for msg_type, bucket in _subscribers.items()}
+
+
+def listener_thread_alive() -> bool:
+    return any(t.name == "udp-listener" and t.is_alive() for t in threading.enumerate())

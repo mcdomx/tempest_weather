@@ -30,6 +30,7 @@ deploy/
 scripts/
   cicd_update.py           # CI/CD polling script (stdlib only)
   run_cicd.sh              # executable wrapper; sets ENVIRONMENT=production
+  resource_monitor.py      # standalone freeze-diagnostic snapshot script (stdlib only); see README-PI.md §10
 notebooks/      # exploratory Jupyter notebooks (unchanged)
 tests/          # pytest test suite
 conftest.py     # adds project root to sys.path for test imports
@@ -55,6 +56,7 @@ conftest.py     # adds project root to sys.path for test imports
 | GET | `/weather/history` | Historical `obs_st` from Tempest cloud API (requires `TEMPEST_PERSONAL_TOKEN`) |
 | GET | `/weather/forecast/daily` | 10-day forecast from Tempest Better Forecast API |
 | GET | `/weather/forecast/hourly` | Hourly forecast (~231 hours) from Tempest Better Forecast API |
+| GET | `/admin/metrics` | SSE subscriber counts, thread count, listener-thread liveness, process RSS (unauthenticated) |
 | POST | `/admin/restart` | Restart the systemd service (unauthenticated) |
 | POST | `/admin/reboot` | Reboot the host — only permitted on a Raspberry Pi, 400 otherwise (unauthenticated) |
 | POST | `/admin/cicd` | Force a CI/CD deploy check, bypassing the interval gate (unauthenticated) |
@@ -138,3 +140,15 @@ rm .cicd_disabled      # resume
 - Cron fires every minute; the script gates on `CICD_INTERVAL_MINUTES` via `logs/.last_run` — most fires are silent no-ops
 - On new commits: `git pull` → `pipenv install` → `systemctl restart tempest-weather`
 - `Pipfile.lock` is committed for reproducibility; regenerate it on the Pi when adding Linux-only packages (e.g. RPLCD)
+
+## Freeze diagnostics & watchdog (Raspberry Pi production only)
+
+The service unit uses `Type=notify` / `WatchdogSec=30`: `app/api.py`'s `lifespan`
+sends `sd_notify("READY=1")` on startup and a background task pings
+`WATCHDOG=1` every 15s, but only while the UDP listener thread is alive — a
+hung event loop or dead listener thread stops the heartbeat, and systemd
+kills and restarts the process. This only covers app-level hangs; a
+hardware watchdog (reboots on a full kernel wedge) and a cron-driven
+`scripts/resource_monitor.py` snapshot (system + process + `/admin/metrics`,
+logged every 2 minutes for post-freeze analysis) are set up manually, once,
+on the Pi — see `README-PI.md` §10 for setup and the post-freeze runbook.
